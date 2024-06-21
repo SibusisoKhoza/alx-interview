@@ -1,75 +1,60 @@
 #!/usr/bin/python3
-"""Log Parsing
-Write a script that reads stdin line by line and computes metrics:
+"""0-stats.py
+    Reads stdin line by line and computes metrics:
+        - Input format: * <status code> <file size>
+    Prints total file size and possible status codes in format:
+        File size: <total size>
+        <status code>: <number>
 """
-import sys
-import signal
 
-# Define the status codes to track
-STATUS_CODES = [200, 301, 400, 401, 403, 404, 405, 500]
+import fileinput
 
-def compute_statistics(lines):
-    total_size = 0
-    status_count = {code: 0 for code in STATUS_CODES}
 
-    for line in lines:
-        try:
-            # Split the line and extract the file size and status code
-            _, _, _, _, _, status_code_str, file_size_str = line.split(" ")
-            status_code = int(status_code_str)
-            file_size = int(file_size_str)
+def print_logs(file_size: int, status_codes: dict):
+    """Print logs
+        Args: file_size (int): Total file size
+                status_codes (dict): Dictionary of status codes
+                Returns: None
+        """
+    print("File size: {}".format(file_size))
+    for key, value in sorted(status_codes.items()):
+        if (value > 0):
+            print("{}: {}".format(key, value))
 
-            # Update the total file size
-            total_size += file_size
 
-            # Update the status code count if it's in the desired codes
-            if status_code in status_count:
-                status_count[status_code] += 1
-
-        except ValueError:
-            # Skip lines with incorrect format
-            continue
-
-    return total_size, status_count
-
-def print_statistics(total_size, status_count):
-    print(f"Total file size: {total_size}")
-    for status_code in sorted(status_count.keys()):
-        count = status_count[status_code]
-        if count > 0:
-            print(f"{status_code}: {count}")
-
-def signal_handler(sig, frame):
-    # Handle CTRL+C
-    print("\nProgram interrupted. Printing current statistics:")
-    print_statistics(total_file_size, status_code_count)
-    sys.exit(0)
-
-if __name__ == "__main__":
-    total_file_size = 0
-    status_code_count = {code: 0 for code in STATUS_CODES}
-    lines_buffer = []
-
-    # Register the signal handler for CTRL+C
-    signal.signal(signal.SIGINT, signal_handler)
+def parse_log():
+    """Parse logs about status codes and file size from stdin
+        Args: None
+                Returns: None
+        """
+    file_size = 0
+    status_codes = {
+        "200": 0,
+        "301": 0,
+        "400": 0,
+        "401": 0,
+        "403": 0,
+        "404": 0,
+        "405": 0,
+        "500": 0}
+    current_line = 0
 
     try:
-        for line in sys.stdin:
-            lines_buffer.append(line.strip())
-
-            # Process and print statistics every 10 lines
-            if len(lines_buffer) >= 10:
-                total_file_size, status_code_count = compute_statistics(lines_buffer)
-                print_statistics(total_file_size, status_code_count)
-                lines_buffer = []
-
+        for line in fileinput.input():
+            data = line.split()
+            if (len(data) < 2):
+                continue
+            file_size += int(data[-1])
+            status = data[-2]
+            if (status in status_codes):
+                status_codes[status] += 1
+            current_line += 1
+            if (current_line % 10 == 0):
+                print_logs(file_size, status_codes)
     except KeyboardInterrupt:
-        # Handle manual interrupt (CTRL+C)
-        print("\nProgram interrupted. Printing current statistics:")
-        print_statistics(total_file_size, status_code_count)
-        sys.exit(0)
+        pass
+    print_logs(file_size, status_codes)
 
-    # Print final statistics when there are remaining lines
-    if lines_buffer:
-        total_file_size, status_code_count = compute_statistics(lines_buffer)
-        print_statistics(total_file_size, status_code_count)
+
+if __name__ == "__main__":
+    parse_log()
